@@ -104,8 +104,10 @@ const keywordkegMiddleware = (prefix) => createProxyMiddleware({
                             $(this).remove();
                         }
                     });
-                    $(".st-dropdown-section[data-dropdown='account'] .col:nth-child(2)").remove();
-                    $(".st-dropdown-section[data-dropdown='account'] .st-dropdown-content-group:nth-child(2)").remove();
+                    if (typeof req.user == "object" && !req.user.isAdmin) {
+                        $(".st-dropdown-section[data-dropdown='account'] .col:nth-child(2)").remove();
+                        $(".st-dropdown-section[data-dropdown='account'] .st-dropdown-content-group:nth-child(2)").remove();
+                    }
                 }
                 return $.html();
             }
