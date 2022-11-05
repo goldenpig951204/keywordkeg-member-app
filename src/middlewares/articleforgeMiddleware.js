@@ -3,11 +3,11 @@ const {
     responseInterceptor
 } = require("http-proxy-middleware");
 const cheerio = require("cheerio");
-const { JSON_to_URLEncoded } = require("../services/utils");
+const { singleJsonUrlEncoded,JSON_to_URLEncoded } = require("../services/utils");
 const FormData = require("form-data");
 
-const keywordkegMiddleware = (prefix) => createProxyMiddleware({
-    target: `https://app.keywordkeg.com`,
+const articleforgeMiddleware = (prefix) => createProxyMiddleware({
+    target: `https://af.articleforge.com`,
     selfHandleResponse: true,
     changeOrigin: true,
     onProxyReq: (proxyReq, req) => {
@@ -28,7 +28,12 @@ const keywordkegMiddleware = (prefix) => createProxyMiddleware({
             }
 
             if (contentType && contentType.includes("application/x-www-form-urlencoded")) {
-                let body = JSON_to_URLEncoded(req.body);
+                let body;
+                if (/\/create_article/.test(req.path)) {
+                    body = singleJsonUrlEncoded(req.body);
+                } else {
+                    body = JSON_to_URLEncoded(req.body);
+                }
                 proxyReq.setHeader("content-type", "application/x-www-form-urlencoded");
                 writeBody(body);
             }
@@ -57,27 +62,17 @@ const keywordkegMiddleware = (prefix) => createProxyMiddleware({
             if (req.url.match(/\.(css|json|js|text|png|jpg|map|ico|svg)/)) {
                 return responseBuffer;
             }
-            if (
-                typeof req.user == "object" && 
-                !req.user.isAdmin && (
-                    /\/invoices/.test(req.path) || 
-                    /\/search\/user-filters/.test(req.path) ||
-                    /\/usage\/searches/.test(req.path) ||
-                    /\/settings\/profile/.test(req.path) ||
-                    /\/settings\/setup/.test(req.path) ||
-                    /\/crruent-session/.test(req.path) ||
-                    /\/settings\/columns/.test(req.path) 
-                ) 
-            ) {
+            if (typeof req.user == "object" && !req.user.isAdmin && (
+                /\/users\/edit/.test(req.path) || /\/billings/.test(req.path) || /\/api_info/.test(req.path)
+            )) {
                 proxyRes.statusCode = 301;
-                proxyRes.headers["location"] = domain;
+                proxyRes.headers["location"] = domain + "/home";
                 res.statusCode = 301;
-                res.setHeader("location", domain);
+                res.setHeader("location", domain + "/home");
             }
-
             if (proxyRes.headers["location"]) {
-                proxyRes.headers["location"] = proxyRes.headers["location"].replace("https://app.keywordkeg.com", domain);
-                res.setHeader("location", proxyRes.headers["location"].replace("https://app.keywordkeg.com", domain));
+                proxyRes.headers["location"] = proxyRes.headers["location"].replace("https://af.articleforge.com", domain);
+                res.setHeader("location", proxyRes.headers["location"].replace("https://af.articleforge.com", domain));
             }
             if (proxyRes.headers["content-type"] && proxyRes.headers["content-type"].includes("text/html")) {
                 let response = responseBuffer.toString("utf-8");
@@ -86,35 +81,32 @@ const keywordkegMiddleware = (prefix) => createProxyMiddleware({
                 anchors.each(function() {
                     let href = $(this).attr("href");
                     if (href !== undefined) {
-                        $(this).attr("href", href.replace("https://app.keywordkeg.com", domain));
+                        $(this).attr("href", href.replace("https://af.articleforge.com", domain));
                     }
                 });
-                let forms = $("form");
-                forms.each(function() {
-                    let action = $(this).attr("action");
-                    if (action !== undefined) {
-                        $(this).attr("action", action.replace("https://app.keywordkeg.com", domain));
+                let scripts = $("script");
+                scripts.each(function() {
+                    let src = $(this).attr("src");
+                    if (src == undefined) {
+                        let content = $(this).html();
+                        let newContent = content.replace(/https:\/\/af.articleforge.com/g, domain);
+                        $(this).html(newContent);
                     }
                 });
-                
                 if (typeof req.user == "object" && !req.user.isAdmin) {
-                    let menuAnchors = $(".st-dropdown-section[data-dropdown='account'] .col:nth-child(1) a");
-                    menuAnchors.each(function() {
-                        let href = $(this).attr("href");
-                        if (!href.includes("lists") && !href.includes("exports")) {
-                            $(this).remove();
-                        }
-                    });
-                    let dropdownItems = $(".st-dropdown-section:nth-child(3) .col:nth-child(1) .dropdown-item");
-                    dropdownItems.each(function() {
-                        let href = $(this).attr("href");
-                        if (/invoice/.test(href) || /search/.test(href) || /usage/.test(href)) {
-                            $(this).remove();
-                        } 
-                    });
-                    $(".st-dropdown-section:nth-child(3) .col:nth-child(2)").remove();
-                    $(".st-dropdown-section:nth-child(3) .st-dropdown-content-group:nth-child(2)").remove();
+                    $("#iq-sidebar-toggle li:nth-child(6)").remove();
+                    $(".iq-user-dropdown .iq-card-body > a").remove();
                 }
+                $("head").append(`<script>
+                    $(document).ready(function() {
+                        $("#bulk_import_wp_submit").click(function() {
+                            var file = $("#bulk_import_wp_form input[type='file']").val();
+                            if (file) {
+                                $("#bulk_import_wp_form").submit();
+                            }
+                        });
+                    })
+                </script>`)
                 return $.html();
             }
             return responseBuffer;
@@ -124,8 +116,8 @@ const keywordkegMiddleware = (prefix) => createProxyMiddleware({
     secure: false,
     hostRewrite: true,
     headers: {
-        referer: "https://app.keywordkeg.com",
-        origin: "https://app.keywordkeg.com"
+        referer: "https://af.articleforge.com",
+        origin: "https://af.articleforge.com"
     },
     autoRewrite: true,
     ws: true
@@ -133,4 +125,4 @@ const keywordkegMiddleware = (prefix) => createProxyMiddleware({
 
 
 
-module.exports = keywordkegMiddleware;
+module.exports = articleforgeMiddleware;

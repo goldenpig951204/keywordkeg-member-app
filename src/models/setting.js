@@ -107,6 +107,10 @@ const settingSchema = mongoose.Schema({
     buzzsumoCookie: {
         type: String,
         default: ""
+    },
+    articleforgeCookie: {
+        type: String,
+        default: ""
     }
 });
 

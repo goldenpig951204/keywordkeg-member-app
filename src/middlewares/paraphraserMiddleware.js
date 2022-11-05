@@ -6,11 +6,12 @@ const cheerio = require("cheerio");
 const { JSON_to_URLEncoded } = require("../services/utils");
 const FormData = require("form-data");
 
+
 const paraphraserMiddleware = (prefix) => createProxyMiddleware({
     target: `https://www.paraphraser.io`,
     selfHandleResponse: true,
     changeOrigin: true,
-    onProxyReq: (proxyReq, req) => {
+    onProxyReq: async (proxyReq, req) => {
         let userAgent = req.headers["user-agent"];
         let { cookie } = req.proxy;
         proxyReq.setHeader("user-agent", userAgent);
@@ -53,7 +54,7 @@ const paraphraserMiddleware = (prefix) => createProxyMiddleware({
     },
     onProxyRes: responseInterceptor(
         (responseBuffer, proxyRes, req, res) => {
-            let domain = `https://${req.headers["host"]}`;
+            let domain = `http://${req.headers["host"]}`;
             if (req.url.match(/\.(css|json|js|text|png|jpg|map|ico|svg)/)) {
                 return responseBuffer;
             }
@@ -69,6 +70,7 @@ const paraphraserMiddleware = (prefix) => createProxyMiddleware({
             }
             if (proxyRes.headers["content-type"] && proxyRes.headers["content-type"].includes("text/html")) {
                 if (
+                    /\/frontend\/rewriteArticleBeta/.test(req.path) ||
                     /\/frontend\/rewriteArticleToolBeta/.test(req.path) ||
                     /\/frontend\/checkPlag/.test(req.path) ||
                     /\/frontend\/grammerCheckerBeta/.test(req.path) ||
@@ -78,6 +80,7 @@ const paraphraserMiddleware = (prefix) => createProxyMiddleware({
                 }
                 let response = responseBuffer.toString("utf-8");
                 let $ = cheerio.load(response);
+                $("head").append(`<style>.g-recaptcha {display:none}</style>`);
                 let anchors = $("a");
                 anchors.each(function() {
                     let href = $(this).attr("href");
@@ -93,7 +96,7 @@ const paraphraserMiddleware = (prefix) => createProxyMiddleware({
                         let newContent = content.replace(/https:\/\/www.paraphraser.io/g, domain);
                         $(this).html(newContent);
                     } else {
-                        $(this).attr("src", src.replace("https://ww.paraphraser.io", domain));
+                        $(this).attr("src", src.replace("https://www.paraphraser.io", domain));
                     }
                 });
                 let langItems = $("#lang_bar li");

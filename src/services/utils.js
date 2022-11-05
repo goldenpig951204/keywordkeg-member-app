@@ -59,11 +59,24 @@ const getFormQueryStr = (data) => {
     let dataQuery = items.join("&");
     return dataQuery;
 }
+const singleJsonUrlEncoded = (data) => {
+    let items = [];
+    Object.keys(data).forEach((key, idx) => {
+        if (key == 'auto_link_data') {
+            items.push(key + "=" + encodeURIComponent(data[key][1]));
+        } else {
+            items.push(key + "=" + encodeURIComponent(data[key]));
+        }
+    });
+    let dataQuery = items.join("&");
+    return dataQuery;
+}
 const JSON_to_URLEncoded = (element,key,list) => {
     var list = list || [];
     if(typeof(element)=='object'){
-        for (var idx in element)
-        JSON_to_URLEncoded(element[idx],key?key+'['+idx+']':idx,list);
+        for (var idx in element) {
+            JSON_to_URLEncoded(element[idx],key?key+'['+idx+']':idx,list);
+        }
     } else {
         list.push(key+'='+encodeURIComponent(element));
     }
@@ -173,6 +186,7 @@ module.exports = {
     isAccessable,
     getMainDomain,
     getFormQueryStr,
+    singleJsonUrlEncoded,
     JSON_to_URLEncoded,
     spamzillaAutoLogin
 }

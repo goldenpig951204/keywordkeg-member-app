@@ -1,3 +1,5 @@
+const Captcha = require("2captcha");
+const solver = new Captcha.Solver("1cca50f7c9ce7bacaa1cb447e3ec2bbd");
 const settingModel = require("../models/setting");
 const proxyModel = require("../models/proxy");
 const domainOverviewModel = require("../models/domainOverview");
@@ -23,6 +25,7 @@ const pipiadsMiddleware = require("./pipiadsMiddleware");
 const keywordkegMiddleware = require("./keywordkegMiddleware");
 const paraphraserMiddleware = require("./paraphraserMiddleware");
 const buzzsumoMiddleware = require("./buzzsumoMiddleware");
+const articleforgeMiddleware = require("./articleforgeMiddleware");
 
 const notFoundMiddleware = (req, res, next) => {
     res.status(404);
@@ -237,7 +240,6 @@ const pipiadsLimitMiddleware = async (req, res, next) => {
             let total = await pipiadsOverviewModel.countRequests(id, username, wpSite, "pipiads", "product");
             let limit = await settingModel.getOverviewLimit("pipiadsProductOverviewLimit");
             if (total > limit) {
-                console.log(req.body);
                 return {
                     next: false,
                     data: {
@@ -312,26 +314,27 @@ const pipiadsLimitMiddleware = async (req, res, next) => {
 keywordkegLimitMiddleware = async (req, res) => {
     if (req.method == "POST" && req.path == "/sf") {
         let { id, username, isAdmin } = req.user;
-        let wpSite = req.wpSite;
-
-        let total = await keywordOverviewModel.countRequests(id, username, wpSite, "keywordkeg");
-        let limit = await settingModel.getOverviewLimit("keywordkegKeywordOverviewLimit");
-        if (total > limit) {
-            return {
-                next: false,
-                data: {
-                    error: true,
-                    handled: true
+        if (isAdmin) {
+            let wpSite = req.wpSite;
+            let total = await keywordOverviewModel.countRequests(id, username, wpSite, "keywordkeg");
+            let limit = await settingModel.getOverviewLimit("keywordkegKeywordOverviewLimit");
+            if (total > limit) {
+                return {
+                    next: false,
+                    data: {
+                        error: true,
+                        handled: true
+                    }
                 }
+            } else {
+                await keywordOverviewModel.create({
+                    userId: id,
+                    username: username,
+                    site: wpSite,
+                    proxyType: "keywordkeg",
+                    phases: [req.keyword]
+                });
             }
-        } else {
-            await keywordOverviewModel.create({
-                userId: id,
-                username: username,
-                site: wpSite,
-                proxyType: "keywordkeg",
-                phases: [req.keyword]
-            });
         }
     }
     return {
@@ -414,6 +417,8 @@ const applyMiddleware = async (req, res, next) => {
                 return paraphraserMiddleware(prefix)(req, res, next);
             } else if (proxy.type == "buzzsumo") {
                 return buzzsumoMiddleware(prefix)(req, res, next);
+            } else if (proxy.type == "articleforge") {
+                return articleforgeMiddleware(prefix)(req, res, next);
             }
         } else {
             return res.render("warning", { msg: "Admin have to set up some proxy-related setting."});
